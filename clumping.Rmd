@@ -1,0 +1,96 @@
+---
+title: "Clumping"
+author: "David Kane"
+date: "2/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+```
+
+Do students clump by gender in Gov 1006? 
+
+
+## Assumptions
+
+Let's ignore the table with all graduate students, since this will never clump. Let's ignore the table with two graduate students. (It is always a good idea to make the initial version of a simulation as simple as possible.) There are 30 remaining students: 16 men and 14 women. Our null hypothesis is that they sit down randomly. We can ignore the last two students since they are, by assumption, sitting at the table with 2 graduate students. This leaves us with 28 students (chosen randomly from the 30 undergraduates) sitting at 7 tables of 4 students each.
+
+Define a "clump" as a table of four, all of the same gender. (Other definitions of clumpy are possible. One aspect of data science is going from a verbal description to a mathematical formulation.) Today in class, there were three such tables. Is that surprising? Is it evidence of clumping? If students sat randomly, how unusual would it be to see three single-gender tables?
+
+
+```{r tools}
+# Before we run the simulation, we need the basic data and some simple
+# functions. Removing the graduate students, there are 16 men and 14 women in
+# the class. Let's use a vector to represent that information. Implicitly, the
+# first four values in the vector sit at table 1, the second four sit at table 2
+# and so on.
+
+class30 <- c(rep("M", 16), rep("F", 14))
+
+
+
+seat_a_class <- function(){
+  
+  # A class seating is defined as 28 of the 30 students in a vector. We only
+  # need 28 because the last two, by assumption, sit at the table with Cian/Alex
+  # and, therefore, don't matter to our calculations. The function could be a
+  # one-line --- list(sample(class30)[1:28]) --- but I like to show the individual
+  # steps.
+  
+  x <- sample(class30)
+  x <- x[1:28]
+  list(x)
+}
+
+calc_clumped_tables <- function(seating){
+  
+  # Given a seating --- which, again, is just a vector of length 28 with Ms and
+  # Fs --- how many clumped tables are there. We will define a clumped table as
+  # one that is all M or all F. As discussed in class, there are other
+  # definitions of "clumping" that we could use.
+  
+  stopifnot(is.list(seating))
+  plan <- unlist(seating)
+  
+  stopifnot(length(plan) == 28)
+  stopifnot(all(plan %in% c("M", "F")))
+
+  # It is not obvious how to do this elegantly. So, I just hack it! I grab out
+  # each table, one at a time, knowing that I have arbitrarily decided that
+  # seats 1 through 4 are Table 1, seats 5 through 8 are Table 2 and so on.
+  # Then, I create a logical vector reporting whether or the person at each seat
+  # is Female. Then, I sum up this vector. If it is all Male, the sum will be
+  # zero. It it is all Female, the sum will be four. Check that, and sum of the
+  # results for each table. Obviously, you need to do a fair bit of fussing to
+  # make sure this is working. Test cases would be good!
+  
+  clumps <- 
+    (sum(plan[1:4] == "F") %in% c(0, 4)) +
+    (sum(plan[5:8] == "F") %in% c(0, 4)) +
+    (sum(plan[9:12] == "F") %in% c(0, 4)) +
+    (sum(plan[13:16] == "F") %in% c(0, 4)) +
+    (sum(plan[17:20] == "F") %in% c(0, 4)) +
+    (sum(plan[21:24] == "F") %in% c(0, 4)) +
+    (sum(plan[25:28] == "F") %in% c(0, 4))
+  
+  return(clumps)
+}
+
+```
+
+```{r sim}
+# Those are all the tools we need. Many/most of my simulations use the tricks we
+# learned in Gov 1005: list-colums and map_* functions are your friends!
+
+sim <- 
+  tibble(replication = 1:10000) %>% 
+  mutate(seating_plan = map(replication, ~ seat_a_class())) %>% 
+  mutate(clumps = map_int(seating_plan, ~ calc_clumped_tables(.)))
+
+```
+
+
+
+
