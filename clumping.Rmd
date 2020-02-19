@@ -1,5 +1,5 @@
 ---
-title: "Clumping"
+title: "Gender Clumping in Gov 1006"
 author: "David Kane"
 date: "2/12/2020"
 output: html_document
@@ -12,12 +12,9 @@ library(tidyverse)
 
 Do students clump by gender in Gov 1006? 
 
+Let's ignore the table with all graduate students, since this will never clump. Let's ignore the table with two graduate students. (It is always a good idea to make the initial version of a simulation as simple as possible.) There are 30 remaining students: 16 men and 14 women. Our null model is that they sit down randomly. We can ignore the last two students since they are, by assumption, sitting at the table with 2 graduate students. This leaves us with 28 students (chosen randomly from the 30 undergraduates) sitting at 7 tables of 4 students each.
 
-## Assumptions
-
-Let's ignore the table with all graduate students, since this will never clump. Let's ignore the table with two graduate students. (It is always a good idea to make the initial version of a simulation as simple as possible.) There are 30 remaining students: 16 men and 14 women. Our null hypothesis is that they sit down randomly. We can ignore the last two students since they are, by assumption, sitting at the table with 2 graduate students. This leaves us with 28 students (chosen randomly from the 30 undergraduates) sitting at 7 tables of 4 students each.
-
-Define a "clump" as a table of four, all of the same gender. (Other definitions of clumpy are possible. One aspect of data science is going from a verbal description to a mathematical formulation.) Today in class, there were three such tables. Is that surprising? Is it evidence of clumping? If students sat randomly, how unusual would it be to see three single-gender tables?
+Define a "clump" as a table of four, all of the same gender. (Other definitions of clumping are possible. One aspect of data science is going from a verbal description to a mathematical formulation.) In class on February 12th, there were three such tables. Is that surprising? Is it evidence of clumping? If students sat randomly, how unusual would it be to see three single-gender tables?
 
 
 ```{r tools}
@@ -29,8 +26,6 @@ Define a "clump" as a table of four, all of the same gender. (Other definitions 
 
 class30 <- c(rep("M", 16), rep("F", 14))
 
-
-
 seat_a_class <- function(){
   
   # A class seating is defined as 28 of the 30 students in a vector. We only
@@ -38,6 +33,9 @@ seat_a_class <- function(){
   # and, therefore, don't matter to our calculations. The function could be a
   # one-line --- list(sample(class30)[1:28]) --- but I like to show the individual
   # steps.
+  
+  # I think that returning a list is necessary because I am going to assign the
+  # result as a list-column.
   
   x <- sample(class30)
   x <- x[1:28]
@@ -47,9 +45,13 @@ seat_a_class <- function(){
 calc_clumped_tables <- function(seating){
   
   # Given a seating --- which, again, is just a vector of length 28 with Ms and
-  # Fs --- how many clumped tables are there. We will define a clumped table as
-  # one that is all M or all F. As discussed in class, there are other
-  # definitions of "clumping" that we could use.
+  # Fs in random order --- how many clumped tables are there? We will define a
+  # clumped table as one that is all M or all F. As discussed in class, there
+  # are other definitions of "clumping" that we could use.
+  
+  # Good functions test to see if their assumptions are met. See the chapter in
+  # the new 1005 textbook for discussion:
+  # https://davidkane9.github.io/PPBDS/6-functions.html
   
   stopifnot(is.list(seating))
   plan <- unlist(seating)
@@ -57,14 +59,15 @@ calc_clumped_tables <- function(seating){
   stopifnot(length(plan) == 28)
   stopifnot(all(plan %in% c("M", "F")))
 
-  # It is not obvious how to do this elegantly. So, I just hack it! I grab out
-  # each table, one at a time, knowing that I have arbitrarily decided that
-  # seats 1 through 4 are Table 1, seats 5 through 8 are Table 2 and so on.
-  # Then, I create a logical vector reporting whether or the person at each seat
-  # is Female. Then, I sum up this vector. If it is all Male, the sum will be
-  # zero. It it is all Female, the sum will be four. Check that, and sum of the
-  # results for each table. Obviously, you need to do a fair bit of fussing to
-  # make sure this is working. Test cases would be good!
+  # It is not obvious how to do this elegantly. So, I just hack it! (Stole this
+  # approach from Beau, I think.) I grab out each table, one at a time, knowing
+  # that I have arbitrarily decided that seats 1 through 4 are Table 1, seats 5
+  # through 8 are Table 2 and so on. Then, I create a logical vector reporting
+  # whether or the person at each seat is Female. Then, I sum up this vector. If
+  # it is all Male, the sum will be zero. It it is all Female, the sum will be
+  # four. Check that, and sum of the results for each table. Obviously, you need
+  # to do a fair bit of fussing to make sure this is working. Test cases would
+  # be good!
   
   clumps <- 
     (sum(plan[1:4] == "F") %in% c(0, 4)) +
@@ -80,15 +83,35 @@ calc_clumped_tables <- function(seating){
 
 ```
 
-```{r sim}
+```{r sim, cache=TRUE}
 # Those are all the tools we need. Many/most of my simulations use the tricks we
 # learned in Gov 1005: list-colums and map_* functions are your friends!
+# https://davidkane9.github.io/PPBDS/6-functions.html#list-columns-and-map_-functions
+
+# I don't really need cache=TRUE since the code does not take *that* long to
+# run. I just wanted to remind you of that trick.
 
 sim <- 
   tibble(replication = 1:10000) %>% 
   mutate(seating_plan = map(replication, ~ seat_a_class())) %>% 
   mutate(clumps = map_int(seating_plan, ~ calc_clumped_tables(.)))
 
+```
+
+```{r graphics}
+# Once we have the data, plotting is straightforward. The ..prop.. trick
+# required some Googling. Of course, I could just have calculated the
+# percentages by hand.
+
+sim %>% 
+  ggplot() + 
+    geom_bar(mapping = aes(x = clumps, y = ..prop..), 
+             width = 0.1) +
+    labs(title = "Gender Clumping in Gov 1006",
+         subtitle = "Having three single-gender tables is surprising",
+         caption = "Data Collected in Gov 1006 on 2020-02-12",
+         x = "Number of Single-Gender Tables out of Seven",
+         y = "Percentage of Simulations out of 10,000")
 ```
 
 

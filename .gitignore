@@ -4,3 +4,7 @@
 .Ruserdata
 
 *.Rproj
+
+clumping_cache
+clumping_files
+
