@@ -17,6 +17,8 @@ Let's ignore the table with all graduate students, since this will never clump. 
 Define a "clump" as a table of four, all of the same gender. (Other definitions of clumping are possible. One aspect of data science is going from a verbal description to a mathematical formulation.) In class on February 12th, there were three such tables. Is that surprising? Is it evidence of clumping? If students sat randomly, how unusual would it be to see three single-gender tables?
 
 
+New question (2/19) - how likely to see female only clumps?
+
 ```{r tools}
 # Before we run the simulation, we need the basic data and some simple
 # functions. Removing the graduate students, there are 16 men and 14 women in
@@ -35,7 +37,7 @@ seat_a_class <- function(){
   # steps.
   
   # I think that returning a list is necessary because I am going to assign the
-  # result as a list-column.
+  # result as a list-column!!
   
   x <- sample(class30)
   x <- x[1:28]
@@ -55,6 +57,10 @@ calc_clumped_tables <- function(seating){
   
   stopifnot(is.list(seating))
   plan <- unlist(seating)
+  
+  # MOLLY: use stopifnot() to assert things and tell the function to stop if any of these are not true
+  # MOLLY: in this case we want the insert to be a list, with 28 ppl, that are M or F only
+  # MOLLY: this will stop nonsense results from being created and instead throw an error
   
   stopifnot(length(plan) == 28)
   stopifnot(all(plan %in% c("M", "F")))
@@ -81,6 +87,29 @@ calc_clumped_tables <- function(seating){
   return(clumps)
 }
 
+
+
+calc_female_clumped_tables <- function(seating){
+  
+  stopifnot(is.list(seating))
+  plan <- unlist(seating)
+  
+  stopifnot(length(plan) == 28)
+  stopifnot(all(plan %in% c("M", "F")))
+
+  clumps <- 
+    (sum(plan[1:4] == "F") == 4) +
+    (sum(plan[5:8] == "F") == 4) +
+    (sum(plan[9:12] == "F") == 4) +
+    (sum(plan[13:16] == "F") == 4) +
+    (sum(plan[17:20] == "F") == 4) +
+    (sum(plan[21:24] == "F") == 4) +
+    (sum(plan[25:28] == "F") == 4)
+  
+  return(clumps)
+}
+
+
 ```
 
 ```{r sim, cache=TRUE}
@@ -96,6 +125,16 @@ sim <-
   mutate(seating_plan = map(replication, ~ seat_a_class())) %>% 
   mutate(clumps = map_int(seating_plan, ~ calc_clumped_tables(.)))
 
+# map function says: take first thing (usually a column of a table) - and run this function on that - and store the result in each row of the tibble
+
+# use str() function to look at the results of a column from sim 
+
+female_sim <-
+  tibble(replication = 1:10000) %>% 
+  mutate(seating_plan = map(replication, ~ seat_a_class())) %>% 
+  mutate(clumps = map_int(seating_plan, ~ calc_female_clumped_tables(.)))
+  
+ 
 ```
 
 ```{r graphics}
@@ -112,8 +151,59 @@ sim %>%
          caption = "Data Collected in Gov 1006 on 2020-02-12",
          x = "Number of Single-Gender Tables out of Seven",
          y = "Percentage of Simulations out of 10,000")
+
+female_sim %>% 
+  ggplot() + 
+    geom_bar(mapping = aes(x = clumps, y = ..prop..), 
+             width = 0.1) +
+    labs(title = "Female Clumping in Gov 1006",
+         subtitle = "Having two female-only tables is surprising",
+         caption = "Data Collected in Gov 1006 on 2020-02-12",
+         x = "Number of Female-Only Tables out of Seven",
+         y = "Percentage of Simulations out of 10,000")
 ```
 
+Given that we observed a value of 3 which occurs ~3% of the time--less than 5%--our observation fulfills the traditional definition for statistical significance. Thus, what we observed in the world is statsitically significant from the null hypothesis, so in that case where 3 tables were clumped, we can reject the null hypothesis and say in that case, the students DO clump by gender (not sitting randomly as the null hypothesis stated).
 
+p-value - the probaility of observing something at least as extreme as the ovserved test statistic 
+  - p-value is a summary of deviation of the null hypothesis
+  - in this case, our observed test statistic would be our real world observation of 3 clumped tables
+    - test statistic overall is number of tables w/ single gender
+    - observed test statistic was 3 
+  - in this case - our p-value would be count(clumps > 3) -- at least as extreme as the observed test statistic -- where we get 3.07% which is less than 5% and can reject the null
+  - if you are greater than 5%, you would summarize what you get and interperet the value
+  
+```{r making fake grades}
 
+ppl_in_class <- 80
+grades <- rnorm(ppl_in_class, 75, 10)
+
+noise1 <- rnorm(ppl_in_class, 0, 10)
+noise2 <- rnorm(ppl_in_class, 0, 10)
+
+midterm <- grades + noise1
+final <- grades + noise2
+
+exams <- data.frame(midterm,final) %>%
+  mutate(complainer = NA) %>%
+  mutate(treatment = NA)
+
+for(i in 1:nrow(exams)) {
+  
+  ifelse(exams$midterm < 75, 
+         exams$complainer[i] <- rbinom(1, 1, .67),
+         exams$complainer[i] <- rbinom(1, 1, .33))
+  
+}
+
+for(i in 1:nrow(exams)) {
+  
+  ifelse(exams$complainer == 1, 
+         exams$treatment[i] <- rbinom(1, 1, .5),
+         exams$treatment[i] <- 0)
+  
+}
+
+```
+  
 
